@@ -1416,48 +1416,16 @@ client.on("messageCreate", (message) => {
     }
   }
 
-  // Update this condition to properly handle all schedule viewing commands
-  // Update this condition to properly handle all schedule viewing commands
+  // Update countdownSchedules to include invasion reminders
   if (
     message.content === "!countdownSchedules" ||
     message.content === "!schedule" ||
     message.content === "!schedules"
   ) {
-    console.log(`Command ${message.content} detected`);
+    // Existing code from before...
 
-    const scheduleIds = Object.keys(activeSchedules);
+    // Additional code to handle invasion and invasion-reminder types:
 
-    if (scheduleIds.length === 0) {
-      message
-        .reply(
-          "No active schedules configured. Use !scheduleEasy, !scheduleOnce, or !reminder to create one."
-        )
-        .catch((err) =>
-          console.error("Failed to reply to schedules empty message:", err)
-        );
-      return;
-    }
-
-    // Create embed for countdown listing
-    const embed = new EmbedBuilder()
-      .setTitle("📅 Upcoming Events & Notifications")
-      .setColor("#FF9900")
-      .setTimestamp()
-      .setFooter({ text: "Notification Bot" });
-
-    const now = new Date();
-
-    // Filter schedules by type
-    const oneTimeSchedules = scheduleIds.filter(
-      (id) => activeSchedules[id].type === "one-time"
-    );
-    const oneTimeReminders = scheduleIds.filter(
-      (id) => activeSchedules[id].type === "one-time-reminder"
-    );
-    const recurringSchedules = scheduleIds.filter(
-      (id) =>
-        !activeSchedules[id].type || activeSchedules[id].type === "recurring"
-    );
     const invasionSchedules = scheduleIds.filter(
       (id) => activeSchedules[id].type === "invasion"
     );
@@ -1524,229 +1492,92 @@ client.on("messageCreate", (message) => {
           value: fieldValue,
         });
       });
-    }
-
-    // Process one-time reminders
-    if (oneTimeReminders.length > 0) {
-      // Sort one-time reminders by time
-      const sortedOneTimeReminders = oneTimeReminders.sort((a, b) => {
-        return (
-          activeSchedules[a].scheduledTime.getTime() -
-          activeSchedules[b].scheduledTime.getTime()
-        );
-      });
-
-      // Add a field for one-time reminders
-      embed.addFields({ name: "📝 One-Time Reminders", value: "\u200B" });
-
-      sortedOneTimeReminders.forEach((scheduleId) => {
-        const schedule = activeSchedules[scheduleId];
-        const timeUntil = schedule.scheduledTime.getTime() - now.getTime();
-
-        if (timeUntil <= 0) {
-          // This should not happen but handle it
-          embed.addFields({
-            name: `ID: ${scheduleId}`,
-            value: `**Status:** Overdue\n**Scheduled Time:** ${schedule.scheduledTime.toUTCString()}`,
-          });
-          return;
-        }
-
-        // Calculate human-readable time difference
-        const countdownText = formatTimeUntil(schedule.scheduledTime);
-
-        let fieldValue = `**Time Until:** ${countdownText}\n`;
-        fieldValue += `**Scheduled Time:** ${schedule.scheduledTime.toUTCString()}\n`;
-
-        if (schedule.reminderData) {
-          fieldValue += `**Title:** ${schedule.reminderData.title}\n`;
-        }
-
-        if (schedule.note) {
-          fieldValue += `**Note:** ${schedule.note}\n`;
-        }
-
-        embed.addFields({ name: `ID: ${scheduleId}`, value: fieldValue });
-      });
-    }
-
-    // Process recurring schedules
-    if (recurringSchedules.length > 0) {
-      // Add a field for recurring schedules
-      embed.addFields({ name: "🔄 Recurring Schedules", value: "\u200B" });
-
-      recurringSchedules.forEach((scheduleId) => {
-        const schedule = activeSchedules[scheduleId];
-
-        let fieldValue = `**Pattern:** \`${schedule.pattern}\`\n`;
-        fieldValue += `**Description:** ${schedule.description}\n`;
-
-        if (schedule.note) {
-          fieldValue += `**Note:** ${schedule.note}\n`;
-        }
-
-        embed.addFields({ name: `ID: ${scheduleId}`, value: fieldValue });
-      });
-    }
-
-    // Add current time information
-    const utcTime = now.toUTCString();
-    embed.addFields({ name: "🕒 Current Time (UTC)", value: utcTime });
-
-    // Send embed to user
-    message
-      .reply({ embeds: [embed] })
-      .catch((err) =>
-        console.error("Failed to reply to schedules message:", err)
-      );
+    } // We don't need to separately display invasion-reminder entries as they're shown with their parent
   }
 
-  // Command: !testNotif
   // Command: !testNotif
   if (message.content === "!testNotif") {
     console.log("Command !testNotif detected");
 
     if (!checkAdmin()) return;
 
-    // Confirm to the user that we're sending a test notification
     message
-      .reply("Sending a test notification...")
+      .reply("Sending test notification...")
       .catch((err) =>
         console.error("Failed to reply to testNotif message:", err)
       );
 
-    // Get the channel
-    const channel = client.channels.cache.get(targetChannelId);
-
-    if (!channel) {
-      console.error("Channel not found!");
-      message.reply(
-        "❌ Error: Target channel not found. Use !setChannel to configure a valid channel."
-      );
-      return;
-    }
-
-    // Create an attractive welcome/test message embed
-    const embed = new EmbedBuilder()
-      .setTitle("👋 Hello Everyone!")
-      .setDescription(
-        "I'm your Invasion Notification Bot, ready to keep your team informed!"
-      )
-      .setColor("#8A2BE2") // Vibrant purple color
-      .addFields(
-        {
-          name: "📢 What I Can Do For You",
-          value:
-            "I'll send alerts for upcoming invasions, battles, and important events so everyone stays coordinated.",
-        },
-        {
-          name: "🕒 Current Server Time",
-          value: new Date().toUTCString(),
-        },
-        {
-          name: "🛡️ Stay Prepared",
-          value:
-            "When the real alerts come, they'll be much more noticeable than this test message.",
-        }
-      )
-      .setTimestamp()
-      .setFooter({
-        text: "This is just a test notification • Your friendly bot assistant",
-      });
-
-    // Send embed to channel - no @everyone for test messages, just a friendly ping
-    channel
-      .send({ embeds: [embed] })
-      .then(() => {
-        console.log("Test notification sent!");
-        message.reply("✅ Test notification sent successfully!");
-      })
-      .catch((error) => {
-        console.error("Failed to send test notification:", error);
-        message.reply(`❌ Failed to send test notification: ${error.message}`);
-      });
+    sendInvasionNotification("manual_test");
   }
 
   // Command: !status
   if (message.content === "!status") {
     console.log("Command !status detected");
 
-    const currentTime = new Date();
-    const utcTime = currentTime.toUTCString();
+    const currentTime = new Date().toUTCString();
     const activeScheduleCount = Object.keys(activeSchedules).length;
 
-    // Count different types of schedules
-    const invasionCount = Object.values(activeSchedules).filter(
-      (s) => s.type === "invasion" || s.type === undefined
-    ).length;
-    const reminderCount = Object.values(activeSchedules).filter(
-      (s) => s.type === "one-time-reminder"
-    ).length;
-    const invasionReminderCount = Object.values(activeSchedules).filter(
-      (s) => s.type === "invasion-reminder"
-    ).length;
+    message
+      .reply(
+        `Bot active! Target channel ID: ${targetChannelId}\nActive schedules: ${activeScheduleCount}\nCurrent UTC time: ${currentTime}`
+      )
+      .catch((err) => console.error("Failed to reply to status message:", err));
+  }
 
-    // Get target channel info
-    const targetChannel = client.channels.cache.get(targetChannelId);
-    const channelInfo = targetChannel
-      ? `#${targetChannel.name}`
-      : "Channel not found";
+  // Update help command to include the new countdown commands
+  if (message.content === "!status" || message.content === "!help") {
+    console.log("Command !status or !help detected");
 
-    // Create an attractive embed
-    const statusEmbed = new EmbedBuilder()
-      .setTitle("🤖 Bot Status Overview")
+    const currentTime = new Date().toUTCString();
+    const activeScheduleCount = Object.keys(activeSchedules).length;
+
+    const helpEmbed = new EmbedBuilder()
+      .setTitle("📱 Bot Status & Commands")
       .setColor("#4CAF50")
-      .setDescription("The invasion notification bot is active and ready!")
+      .setDescription("The notification bot is active and ready!")
       .addFields(
         {
-          name: "📡 Connection Status",
-          value: `✅ Connected as **${client.user.tag}**`,
-        },
-        {
-          name: "🔔 Notification Channel",
-          value: `${channelInfo} (ID: ${targetChannelId})`,
-        },
-        {
-          name: "⏰ Active Schedules",
+          name: "⚙️ Status",
           value: [
-            `• **Total Schedules:** ${activeScheduleCount}`,
-            `• **Invasion Events:** ${invasionCount}`,
-            `• **Invasion Reminders:** ${invasionReminderCount}`,
-            `• **General Reminders:** ${reminderCount}`,
+            `• Active reminders/schedules: ${activeScheduleCount}`,
+            `• Current time (UTC): ${currentTime}`,
+            `• Sending to: <#${targetChannelId}>`,
           ].join("\n"),
         },
         {
-          name: "🕒 Time Information",
+          name: "📝 Regular Reminder Commands",
           value: [
-            `• **Current UTC Time:** ${utcTime}`,
-            `• **Day of Week:** ${
-              [
-                "Sunday",
-                "Monday",
-                "Tuesday",
-                "Wednesday",
-                "Thursday",
-                "Friday",
-                "Saturday",
-              ][currentTime.getUTCDay()]
-            }`,
+            '• `!reminder tomorrow 15:00 "Title" "Message"` - Set a regular reminder',
+            '• `!reminder +30minutes "Quick reminder" "Don\'t forget"`',
           ].join("\n"),
         },
         {
-          name: "📋 Quick Commands",
+          name: "⚔️ Invasion Alert Commands",
           value: [
-            "• `!schedules` - View upcoming events",
-            "• `!help` - View all commands",
-            "• `!setChannel` - Change notification channel",
+            '• `!invasion tomorrow 18:00 "Note"` - Schedule invasion with auto-reminders',
+            '• `!countdown 19:38:49 "Note"` - Schedule from in-game timer',
+            '• `!customcountdown 19:38:49 60:30:10 "Note"` - Set custom reminder times',
+            '• `!scheduleOnce tomorrow 18:00 "Note"` - Basic one-time invasion alert',
+            '• `!scheduleEasy daily 20:00 "Note"` - Recurring invasion alert',
+            "• `!testNotif` - Test the invasion notification",
+          ].join("\n"),
+        },
+        {
+          name: "📊 View & Manage",
+          value: [
+            "• `!schedules` - View upcoming reminders/alerts",
+            "• `!setChannel` - Set current channel for notifications",
           ].join("\n"),
         }
       )
       .setTimestamp()
-      .setFooter({ text: "Use !help for a list of all available commands" });
+      .setFooter({ text: "Made with ❤️ by your server admin" });
 
     message
-      .reply({ embeds: [statusEmbed] })
-      .catch((err) => console.error("Failed to reply to status message:", err));
+      .reply({ embeds: [helpEmbed] })
+      .catch((err) =>
+        console.error("Failed to reply to status/help message:", err)
+      );
   }
 
   // Command: !addSchedule [pattern] [note]
@@ -2657,197 +2488,51 @@ client.on("messageCreate", (message) => {
     const helpEmbed = new EmbedBuilder()
       .setTitle("🤖 Invasion Notification Bot Help")
       .setColor("#00FF00")
-      .setDescription(
-        "Commands are organized by category. Use the specialized help commands for more details."
-      )
+      .setDescription("Here is a list of available commands:")
       .addFields(
         {
-          name: "🔧 Setup Commands",
-          value: [
-            "• `!setChannel` - Set current channel for notifications (Admin)",
-            "• `!status` - Check bot status and active schedules",
-            "• `!timeNow` - Display current UTC and server time",
-          ].join("\n"),
+          name: "!setChannel",
+          value: "Set current channel as notification target (Admin)",
+        },
+        { name: "!testNotif", value: "Send a test notification (Admin)" },
+        {
+          name: "!scheduleEasy [days] [hour:minute] [note]",
+          value:
+            'Add a schedule using simplified format (Admin)\nExample: !scheduleEasy mon,wed,fri 20:00 "Weekday evenings"',
         },
         {
-          name: "⚔️ Invasion Commands",
-          value: [
-            "• `!invasion [date] [time] [note]` - Schedule attack with auto-reminders",
-            "• `!countdown HH:MM:SS [note]` - Schedule from in-game timer",
-            "• `!customcountdown HH:MM:SS R1:R2:R3 [note]` - Custom reminder times",
-            "• `!testNotif` - Send test invasion notification (Admin)",
-          ].join("\n"),
+          name: '!addSchedule "pattern" [note]',
+          value:
+            'Add a schedule using cron pattern (Admin)\nExample: !addSchedule "0 20 * * 1,3,5" "Weekday evenings"',
         },
         {
-          name: "📝 Reminder Commands",
-          value: [
-            "• `!reminder [date] [time] [title] [message] [note]` - General reminder",
-          ].join("\n"),
+          name: "!removeSchedule [id]",
+          value: "Remove a notification schedule by ID (Admin)",
         },
         {
-          name: "📅 Schedule Commands",
-          value: [
-            "• `!scheduleEasy [days] [time] [note]` - Simple recurring schedule",
-            '• `!addSchedule "pattern" [note]` - Advanced cron pattern scheduling',
-            "• `!removeSchedule [id]` - Delete a schedule by ID",
-          ].join("\n"),
+          name: "!listSchedules",
+          value: "List all active notification schedules",
         },
         {
-          name: "📊 Management Commands",
-          value: [
-            "• `!schedules` - View all upcoming notifications",
-            "• `!scheduleHistory` - View schedule creation/removal history",
-          ].join("\n"),
+          name: "!scheduleHelp",
+          value: "Show detailed scheduling help and examples",
         },
         {
-          name: "❓ Help Commands",
-          value: [
-            "• `!invasionHelp` - Help with invasion-related commands",
-            "• `!reminderHelp` - Help with reminder commands",
-            "• `!scheduleHelp` - Help with scheduling commands",
-          ].join("\n"),
-        }
+          name: "!scheduleHistory",
+          value: "View schedule creation/removal history",
+        },
+        { name: "!timeNow", value: "Display current UTC and local time" },
+        { name: "!status", value: "Check bot status" },
+        { name: "!help", value: "Display this help message" }
       )
       .setTimestamp()
-      .setFooter({ text: "Use specialized help commands for more details" });
+      .setFooter({ text: "Invasion Notification Bot" });
 
     message
       .reply({ embeds: [helpEmbed] })
       .catch((err) => console.error("Failed to reply to help message:", err));
   }
 
-  // Command !invasionHelp to show detailed invasion scheduling help
-  if (message.content === "!invasionHelp") {
-    console.log("Command !invasionHelp detected");
-
-    const helpEmbed = new EmbedBuilder()
-      .setTitle("⚔️ Invasion Commands Help")
-      .setColor("#FF0000")
-      .setDescription("Commands for scheduling invasion alerts and reminders")
-      .addFields(
-        {
-          name: "🗓️ Schedule by Date & Time",
-          value: [
-            "**Command:** `!invasion [date] [time] [note]`",
-            "",
-            "**Examples:**",
-            '• `!invasion tomorrow 18:00 "Guild war"`',
-            '• `!invasion 2023-12-25 20:00 "Holiday raid"`',
-            '• `!invasion +2hours "Quick attack"`',
-            "",
-            "**Date Formats:**",
-            "• `YYYY-MM-DD` - Specific date (e.g., 2023-12-31)",
-            "• `today` - Today's date",
-            "• `tomorrow` - Tomorrow's date",
-            "• `+Nhours` - N hours from now (e.g., +2hours)",
-            "• `+Nminutes` - N minutes from now (e.g., +30minutes)",
-            "",
-            "This command automatically creates reminders at 1 hour, 30 minutes, and 10 minutes before the invasion time.",
-          ].join("\n"),
-        },
-        {
-          name: "⏱️ Schedule from In-Game Countdown",
-          value: [
-            "**Command:** `!countdown HH:MM:SS [note]`",
-            "",
-            "**Examples:**",
-            '• `!countdown 19:38:49 "Boss invasion"`',
-            '• `!countdown 2:30:00 "Guild war"`',
-            '• `!countdown 0:45:30 "Quick raid"`',
-            "",
-            "**Format:** Hours:Minutes:Seconds as shown in the game",
-            "• 19:38:49 (19 hours, 38 minutes, 49 seconds)",
-            "• 2:30:00 (2 hours, 30 minutes)",
-            "",
-            "This command automatically creates reminders at 1 hour, 30 minutes, and 10 minutes before the invasion time.",
-          ].join("\n"),
-        },
-        {
-          name: "⚙️ Custom Countdown with Specific Reminders",
-          value: [
-            "**Command:** `!customcountdown HH:MM:SS R1:R2:R3 [note]`",
-            "",
-            "**Examples:**",
-            '• `!customcountdown 19:38:49 60:30:10 "Boss invasion"`',
-            '• `!customcountdown 2:30:00 120:60:30:15:5 "Guild war with many reminders"`',
-            "",
-            "**First parameter:** Hours:Minutes:Seconds countdown from game",
-            "**Second parameter:** Minutes before invasion for each reminder, separated by colons",
-            "• 60:30:10 (reminders at 60 mins, 30 mins, and 10 mins before)",
-          ].join("\n"),
-        },
-        {
-          name: "🧪 Test Command",
-          value:
-            "• `!testNotif` - Send a test invasion notification (Admin only)",
-        }
-      )
-      .setTimestamp()
-      .setFooter({
-        text: "All invasion notifications will @everyone in the target channel",
-      });
-
-    message
-      .reply({ embeds: [helpEmbed] })
-      .catch((err) =>
-        console.error("Failed to reply to invasionHelp message:", err)
-      );
-  }
-  // Command !reminderHelp to show detailed reminder help
-  if (message.content === "!reminderHelp") {
-    console.log("Command !reminderHelp detected");
-
-    const helpEmbed = new EmbedBuilder()
-      .setTitle("📝 Reminder Command Help")
-      .setColor("#3498DB")
-      .setDescription("Learn how to create one-time general reminders")
-      .addFields(
-        {
-          name: "📌 One-Time Reminder Creation",
-          value: [
-            "**Command:** `!reminder [date] [time] [title] [message] [note]`",
-            "",
-            "**Examples:**",
-            '• `!reminder tomorrow 15:00 "Team Meeting" "Don\'t forget our weekly team meeting" "Important"`',
-            '• `!reminder +2hours "Gather Resources" "Time to collect resources!"`',
-            '• `!reminder 2023-12-25 08:00 "Christmas" "Merry Christmas everyone!"`',
-            "",
-            "**Date Formats:**",
-            "• `YYYY-MM-DD` - Specific date (e.g., 2023-12-31)",
-            "• `today` - Today's date",
-            "• `tomorrow` - Tomorrow's date",
-            "• `+Nhours` - N hours from now (e.g., +2hours)",
-            "• `+Nminutes` - N minutes from now (e.g., +30minutes)",
-            "",
-            "**Time Format:**",
-            "• `hour:minute` in 24-hour format (e.g., 15:00 for 3:00 PM)",
-            "• Not needed when using +hours or +minutes format",
-            "",
-            "**Title & Message:**",
-            'Use quotes for multi-word title and message: "Your Title" "Your detailed message"',
-            "",
-            "**Note:**",
-            "Optional additional information (use quotes for multi-word notes)",
-          ].join("\n"),
-        },
-        {
-          name: "📊 Managing Reminders",
-          value: [
-            "• `!schedules` - View upcoming reminders",
-            "• `!removeSchedule [id]` - Delete a reminder by ID",
-            "• `!scheduleHistory` - View reminder history",
-          ].join("\n"),
-        }
-      )
-      .setTimestamp()
-      .setFooter({ text: "General reminders use @here instead of @everyone" });
-
-    message
-      .reply({ embeds: [helpEmbed] })
-      .catch((err) =>
-        console.error("Failed to reply to reminderHelp message:", err)
-      );
-  }
   // Command !scheduleHelp to show detailed scheduling help
   if (message.content === "!scheduleHelp") {
     console.log("Command !scheduleHelp detected");
@@ -2855,9 +2540,7 @@ client.on("messageCreate", (message) => {
     const helpEmbed = new EmbedBuilder()
       .setTitle("📅 Scheduling Help Guide")
       .setColor("#33CCFF")
-      .setDescription(
-        "Learn how to create and manage recurring notification schedules"
-      )
+      .setDescription("Learn how to create and manage notification schedules")
       .addFields(
         {
           name: "📝 Easy Scheduling",
@@ -2896,9 +2579,10 @@ client.on("messageCreate", (message) => {
         {
           name: "🔄 Managing Schedules",
           value: [
-            "• `!schedules` - View all upcoming schedules",
+            "• `!listSchedules` - View all active schedules",
             "• `!removeSchedule [id]` - Delete a schedule by ID",
             "• `!scheduleHistory` - View schedule history",
+            "• `!testNotif` - Test a notification",
           ].join("\n"),
         },
         {
@@ -2911,7 +2595,7 @@ client.on("messageCreate", (message) => {
         }
       )
       .setTimestamp()
-      .setFooter({ text: "All times are in UTC" });
+      .setFooter({ text: "Invasion Notification Bot" });
 
     message
       .reply({ embeds: [helpEmbed] })
@@ -2946,116 +2630,52 @@ client.login(token).catch((error) => {
 });
 
 /* 
-# INVASION NOTIFICATION BOT - DOCUMENTATION
-
-## SETUP INSTRUCTIONS:
+HOW TO USE:
 1. Create a .env file with:
-   ```
    DISCORD_TOKEN=your_bot_token
    TARGET_CHANNEL_ID=your_default_channel_id (optional)
    SCHEDULE_PATTERN=0 20 *\/2 * * (optional, cron format for default schedule)
-   ```
 
-2. Install dependencies:
-   ```
+2. Install dependencies with command:
    npm install discord.js@14 node-cron dotenv
-   ```
 
-3. Run the bot:
-   ```
+3. Run the bot with command:
    node bot.js
-   ```
 
-## COMMAND CATEGORIES:
+4. Available commands:
+   - !setChannel - Set current channel as notification target (Admin)
+   - !testNotif - Send a test notification (Admin)
+   - !status - Check bot status and target channel ID
+   - !timeNow - Display current UTC and local time
+   
+   - SCHEDULE COMMANDS (EASY TO USE):
+   - !scheduleEasy [days] [hour:minute] [note] - Add schedule with simple format (Admin)
+     Examples:
+     • !scheduleEasy daily 20:00 "Daily at 8PM"
+     • !scheduleEasy weekend 12:00 "Weekend noon"
+     • !scheduleEasy mon,wed,fri 20:00 "MWF evenings"
+     • !scheduleEasy every2days 8:00 "Every 2 days morning"
+   
+   - SCHEDULE COMMANDS (ADVANCED):
+   - !addSchedule "pattern" [note] - Add schedule with cron pattern (Admin)
+     Example: !addSchedule "0 20 * * 1,3,5" "Weekday evenings"
+   - !removeSchedule [id] - Remove a notification schedule by ID (Admin)
+   - !listSchedules - List all active notification schedules
+   - !scheduleHistory - View schedule creation/removal history
+   
+   - HELP COMMANDS:
+   - !scheduleHelp - Show detailed scheduling help and examples
+   - !help - Display list of all commands
 
-### 🔧 SETUP COMMANDS:
-- `!setChannel` - Set current channel for notifications (Admin only)
-- `!status` - Check bot status, target channel and active schedules
-- `!timeNow` - Display current UTC and server time
+5. Schedule Options:
+   - Day options: daily, weekend, weekday, every2days, every3days
+   - Day names: sun, mon, tue, wed, thu, fri, sat (can use commas: mon,wed,fri)
+   - Time format: hour:minute in 24-hour format (20:00 = 8:00 PM)
 
-### ⚔️ INVASION COMMANDS:
-- `!invasion [date] [time] [note]` - Schedule attack with auto-reminders
-  Examples:
-  • `!invasion tomorrow 18:00 "Guild war"`
-  • `!invasion 2023-12-25 20:00 "Holiday raid"`
-  • `!invasion +2hours "Quick attack"`
-
-- `!countdown HH:MM:SS [note]` - Schedule from in-game timer
-  Example: `!countdown 19:38:49 "Boss invasion"`
-
-- `!customcountdown HH:MM:SS R1:R2:R3 [note]` - Custom reminder times
-  Example: `!customcountdown 19:38:49 60:30:15:5 "Custom reminders"`
-
-- `!testNotif` - Send test invasion notification (Admin only)
-
-### 📝 REGULAR REMINDER COMMANDS:
-- `!reminder [date] [time] [title] [message] [note]` - Schedule general reminder
-  Examples:
-  • `!reminder tomorrow 15:00 "Team Meeting" "Don't forget our meeting"`
-  • `!reminder +30minutes "Resource check" "Time to collect resources!"`
-
-### 📅 RECURRING SCHEDULE COMMANDS:
-- `!scheduleEasy [days] [hour:minute] [note]` - Simple recurring schedule
-  Examples:
-  • `!scheduleEasy daily 20:00 "Daily evening notification"`
-  • `!scheduleEasy weekend 12:00 "Weekend event"`
-  • `!scheduleEasy mon,wed,fri 19:00 "Tri-weekly event"`
-  • `!scheduleEasy every2days 8:00 "Every other day"`
-
-- `!addSchedule "pattern" [note]` - Advanced cron pattern scheduling
-  Example: `!addSchedule "0 20 * * 1,3,5" "Weekday evenings"`
-
-### 📊 MANAGEMENT COMMANDS:
-- `!schedules` or `!countdownSchedules` - View all upcoming notifications
-- `!removeSchedule [id]` - Delete a schedule by ID
-- `!scheduleHistory` - View schedule creation/removal history
-- `!help` - Display list of commands
-- `!scheduleHelp` - Detailed scheduling guide
-
-## SCHEDULING OPTIONS:
-
-### Day Options:
-- `daily` - Every day
-- `weekend` - Saturday and Sunday
-- `weekday` - Monday through Friday
-- Day abbreviations: `sun`, `mon`, `tue`, `wed`, `thu`, `fri`, `sat`
-- Separate multiple days with commas: `mon,wed,fri`
-- Intervals: `every2days`, `every3days`, etc.
-
-### Date Formats:
-- `YYYY-MM-DD` - Specific date (e.g., 2023-12-31)
-- `today` - Today's date
-- `tomorrow` - Tomorrow's date
-- `+Nhours` - N hours from now (e.g., +2hours)
-- `+Nminutes` - N minutes from now (e.g., +30minutes)
-
-### Time Format:
-- 24-hour format: `hour:minute` (e.g., 20:00 for 8:00 PM)
-- Time values are in UTC timezone
-
-### Countdown Format (for !countdown command):
-- `HH:MM:SS` - Hours:Minutes:Seconds as shown in game
-- Examples:
-  • 19:38:49 (19 hours, 38 minutes, 49 seconds)
-  • 2:30:00 (2 hours, 30 minutes)
-  • 0:45:30 (45 minutes, 30 seconds)
-
-## ADVANCED: CRON PATTERN FORMAT
-Format: `minute hour dayOfMonth month dayOfWeek`
-
-### Common Patterns:
-- `0 20 * * *` - Every day at 8:00 PM
-- `0 *\/6 * * *` - Every 6 hours (at 00:00, 06:00, 12:00, 18:00)
-- `0 8 *\/2 * *` - Every 2 days at 8:00 AM
-- `0 20 * * 1,3,5` - Monday, Wednesday, Friday at 8:00 PM
-- `30 20 1 * *` - 1st day of each month at 8:30 PM
-
-### Values:
-- Days of week: 0=Sunday, 1=Monday, 2=Tuesday, etc.
-- Months: 1=January, 2=February, etc.
-- Special characters:
-  • `*` - any value
-  • `,` - value list separator (e.g., 1,3,5)
-  • `-` - range of values (e.g., 1-5)
-  • `/` - step values (e.g., *\/2)
+6. Cron Pattern Format (for advanced users):
+   minute hour dayOfMonth month dayOfWeek
+   Examples:
+   - "0 20 * * 1,3,5" = Monday, Wednesday, Friday at 8:00 PM
+   - "0 *\/6 * * *" = Every 6 hours (at 00:00, 06:00, 12:00, 18:00)
+   - "0 8 *\/2 * *" = Every 2 days at 8:00 AM
 */
